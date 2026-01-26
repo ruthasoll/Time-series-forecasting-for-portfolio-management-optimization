@@ -5,8 +5,13 @@ from statsmodels.tsa.arima.model import ARIMA
 import pmdarima as pm
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
+try:
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import LSTM, Dense
+except Exception:
+    # Fallback to standalone keras if tensorflow.keras is not available
+    from keras.models import Sequential
+    from keras.layers import LSTM, Dense
 import logging
 
 def split_data(data, test_size=0.2):
@@ -21,10 +26,38 @@ def evaluate_forecast(y_true, y_pred, model_name):
     """
     Calculates MAE, RMSE, MAPE.
     """
-    mae = mean_absolute_error(y_true, y_pred)
-    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-    mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
-    
+    # Convert inputs to pandas Series for safe alignment and NaN handling
+    y_true_s = pd.Series(y_true).astype(float)
+    y_pred_s = pd.Series(y_pred).astype(float)
+
+    # Align on index if possible (keeps intersection); otherwise align by position
+    try:
+        y_true_s, y_pred_s = y_true_s.align(y_pred_s, join='inner')
+    except Exception:
+        # Fallback: truncate to same length by position
+        min_len = min(len(y_true_s), len(y_pred_s))
+        y_true_s = y_true_s.iloc[:min_len]
+        y_pred_s = y_pred_s.iloc[:min_len]
+
+    # Drop any remaining NaNs
+    mask = y_true_s.notna() & y_pred_s.notna()
+    if mask.sum() == 0:
+        raise ValueError("No overlapping non-NaN values available to evaluate.")
+    if mask.sum() < len(y_true_s):
+        logging.warning(f"evaluate_forecast: Dropped {len(y_true_s) - mask.sum()} rows due to NaNs.")
+
+    y_true_clean = y_true_s[mask].values
+    y_pred_clean = y_pred_s[mask].values
+
+    mae = float(mean_absolute_error(y_true_clean, y_pred_clean))
+    rmse = float(np.sqrt(mean_squared_error(y_true_clean, y_pred_clean)))
+
+    # Compute MAPE safely (avoid division by zero)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        denom = np.where(y_true_clean == 0, np.nan, y_true_clean)
+        mape_vals = np.abs((y_true_clean - y_pred_clean) / denom)
+        mape = float(np.nanmean(mape_vals) * 100)
+
     return {
         "Model": model_name,
         "MAE": mae,
@@ -82,7 +115,7 @@ class LSTMModel:
 
     def create_dataset(self, dataset):
         X, Y = [], []
-        for i in range(len(dataset) - self.look_back - 1):
+        for i in range(len(dataset) - self.look_back):
             a = dataset[i:(i + self.look_back), 0]
             X.append(a)
             Y.append(dataset[i + self.look_back, 0])
@@ -126,3 +159,5 @@ class LSTMModel:
         predictions = self.scaler.inverse_transform(predictions_scaled)
         
         return predictions.flatten()
+
+
