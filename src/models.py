@@ -5,13 +5,13 @@ from statsmodels.tsa.arima.model import ARIMA
 import pmdarima as pm
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
-try:
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import LSTM, Dense
-except Exception:
+# try:
+#     from tensorflow.keras.models import Sequential
+#     from tensorflow.keras.layers import LSTM, Dense
+# except Exception:
     # Fallback to standalone keras if tensorflow.keras is not available
-    from keras.models import Sequential
-    from keras.layers import LSTM, Dense
+from keras.models import Sequential
+from keras.layers import LSTM, Dense
 import logging
 
 def split_data(data, test_size=0.2):

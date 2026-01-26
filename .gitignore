@@ -27,3 +27,4 @@ htmlcov/
 data/
 !data/processed/.gitkeep
 notebooks/.ipynb_checkpoints
+.venv/
