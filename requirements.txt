@@ -11,3 +11,5 @@ PyPortfolioOpt
 scipy
 jupyter
 notebook
+streamlit
+plotly
