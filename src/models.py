@@ -28,13 +28,15 @@ def evaluate_forecast(y_true, y_pred, model_name):
     y_pred_s = pd.Series(y_pred).astype(float)
 
     # Align on index if possible (keeps intersection); otherwise align by position
-    try:
-        y_true_s, y_pred_s = y_true_s.align(y_pred_s, join='inner')
-    except Exception:
-        # Fallback: truncate to same length by position
+    y_true_temp, y_pred_temp = y_true_s.align(y_pred_s, join='inner')
+    
+    if len(y_true_temp) == 0:
+        # Fallback: truncate and reset index to align by position
         min_len = min(len(y_true_s), len(y_pred_s))
-        y_true_s = y_true_s.iloc[:min_len]
-        y_pred_s = y_pred_s.iloc[:min_len]
+        y_true_s = y_true_s.iloc[:min_len].reset_index(drop=True)
+        y_pred_s = y_pred_s.iloc[:min_len].reset_index(drop=True)
+    else:
+        y_true_s, y_pred_s = y_true_temp, y_pred_temp
 
     # Drop any remaining NaNs
     mask = y_true_s.notna() & y_pred_s.notna()
